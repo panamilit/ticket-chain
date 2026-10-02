@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import Date, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -11,8 +11,13 @@ class Event(Base):
 
     id: Mapped[int] = mapped_column(
         Integer,
-        primary_key=True,
-        index=True
+        primary_key=True
+    )
+
+    contract_event_id: Mapped[int] = mapped_column(
+        Integer,
+        unique=True,
+        nullable=False
     )
 
     name: Mapped[str] = mapped_column(
@@ -20,9 +25,9 @@ class Event(Base):
         nullable=False
     )
 
-    description: Mapped[str | None] = mapped_column(
+    description: Mapped[str] = mapped_column(
         Text,
-        nullable=True
+        nullable=False
     )
 
     venue: Mapped[str] = mapped_column(
@@ -30,12 +35,7 @@ class Event(Base):
         nullable=False
     )
 
-    event_date: Mapped[datetime] = mapped_column(
-        DateTime,
+    date: Mapped[date] = mapped_column(
+        Date,
         nullable=False
-    )
-
-    image_url: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True
     )
