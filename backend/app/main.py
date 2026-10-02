@@ -2,18 +2,19 @@ from fastapi import FastAPI
 
 from . import models
 from .database import engine
+from .routes import events
 
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="Blockchain Ticketing API",
+    title="TicketChain API",
     version="0.1.0"
 )
+
+app.include_router(events.router)
 
 
 @app.get("/")
 def root():
-    return {
-        "message": "Blockchain Ticketing API"
-    }
+    return {"message": "TicketChain API"}

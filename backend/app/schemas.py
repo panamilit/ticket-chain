@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class EventCreate(BaseModel):
+    contract_event_id: int
     name: str
     description: str
     venue: str
@@ -14,5 +15,3 @@ class EventResponse(EventCreate):
     id: int
 
     model_config = ConfigDict(from_attributes=True)
-
-
