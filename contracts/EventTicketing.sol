@@ -18,6 +18,8 @@ contract EventTicketing {
 
     mapping (uint256 => Event) public events;
 
+    event EventCreated(uint256 indexed eventId, address indexed organizer, uint256 price, uint256 supply);
+
     
     function createEvent(uint256 price, uint256 supply) external {
         require(supply > 0, "Supply must be greater than 0");
@@ -33,9 +35,10 @@ contract EventTicketing {
             }
         );
 
+        emit EventCreated(eventId, msg.sender, price, supply);
+
         nextEventId++;
 
     }
-
 
 }
