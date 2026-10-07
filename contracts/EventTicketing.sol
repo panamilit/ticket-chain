@@ -59,12 +59,13 @@ contract EventTicketing {
 
 
     function buyTicket(uint256 eventId) external payable {
+        require(eventId < nextEventId, "Event does not exist");
+
         Event storage eventData = events[eventId];
 
-        require(eventId < nextEventId, "Event doesn't exist");
         require(eventData.sold < eventData.supply, "Event is sold out");
-        require(msg.value == eventData.price, "Incorrect event price");
-        
+        require(msg.value == eventData.price, "Incorrect ticket price");
+
         uint256 ticketId = nextTicketId;
 
         tickets[ticketId] = Ticket(
@@ -80,6 +81,10 @@ contract EventTicketing {
         nextTicketId++;
 
         emit TicketPurchased(ticketId, eventId, msg.sender);
+
+        (bool success, ) = payable(eventData.organizer).call{value: msg.value}("");
+
+        require(success, "Payment failed");
 
     }
 
