@@ -89,5 +89,31 @@ contract EventTicketing {
         ticket.owner = newOwner;
 
     }
+    
+
+    function verifyTicket(uint256 ticketId) external view returns (uint256 eventId, address owner, bool isUsed) {
+        require(ticketId < nextTicketId, "Tickets doesn't exist");
+
+        Ticket storage ticket = tickets[ticketId];
+
+        return(ticket.eventId, ticket.owner, ticket.isUsed);
+
+    }
+
+
+    function useTicket(uint256 ticketId) external {
+        require(ticketId < nextTicketId, "Ticket does not exist");
+
+        Ticket storage ticket = tickets[ticketId];
+        Event storage eventData = events[ticket.eventId];
+
+        if (msg.sender != eventData.organizer) {
+            revert("Only organizer can use ticket");
+        }
+
+        require(!ticket.isUsed, "Ticket already used");
+
+        ticket.isUsed = true;
+    }
 
 }
