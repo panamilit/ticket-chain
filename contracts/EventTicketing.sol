@@ -77,4 +77,18 @@ contract EventTicketing {
     }
 
 
+    function transferTicket(uint256 ticketId, address newOwner) external {
+        require(ticketId < nextTicketId, "Ticket doesn't exist");
+
+        Ticket storage ticket = tickets[ticketId];
+
+        require(ticket.owner == msg.sender, "Not the ticket owner");
+        require(!ticket.isUsed, "Ticket already used");
+        require(newOwner != address(0), "Invalid new owner");
+
+        ticket.owner = newOwner;
+
+    }
+
+
 }
