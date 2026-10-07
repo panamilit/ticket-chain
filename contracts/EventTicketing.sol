@@ -90,5 +90,4 @@ contract EventTicketing {
 
     }
 
-
 }
