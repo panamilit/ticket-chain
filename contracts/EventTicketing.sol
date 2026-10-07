@@ -30,6 +30,11 @@ contract EventTicketing {
     mapping(uint256 => Ticket) public tickets;
 
     event EventCreated(uint256 indexed eventId, address indexed organizer, uint256 price, uint256 supply);
+    event TicketPurchased(uint256 indexed ticketId, uint256 indexed eventId, address indexed owner);
+    event TicketTransferred(uint256 indexed ticketId, address indexed previousOwner, address indexed newOwner);
+    event TicketUsed(uint256 indexed ticketId, uint256 indexed eventId);
+
+
 
     
     function createEvent(uint256 price, uint256 supply) external {
@@ -74,6 +79,8 @@ contract EventTicketing {
         eventData.sold++;
         nextTicketId++;
 
+        emit TicketPurchased(ticketId, eventId, msg.sender);
+
     }
 
 
@@ -86,7 +93,11 @@ contract EventTicketing {
         require(!ticket.isUsed, "Ticket already used");
         require(newOwner != address(0), "Invalid new owner");
 
+        address previousOwner = ticket.owner;
+
         ticket.owner = newOwner;
+
+        emit TicketTransferred(ticketId, previousOwner, newOwner);
 
     }
     
@@ -114,6 +125,8 @@ contract EventTicketing {
         require(!ticket.isUsed, "Ticket already used");
 
         ticket.isUsed = true;
+
+        emit TicketUsed(ticketId, ticket.eventId);
     }
 
 }
