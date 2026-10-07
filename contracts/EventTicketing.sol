@@ -14,9 +14,20 @@ contract EventTicketing {
         uint256 sold;
     }
 
-    uint256 public nextEventId;
 
-    mapping (uint256 => Event) public events;
+    struct Ticket {
+        uint256 id;
+        uint256 eventId;
+        address owner;
+        bool isUsed;
+    }
+
+
+    uint256 public nextEventId;
+    uint256 public nextTicketId;
+
+    mapping(uint256 => Event) public events;
+    mapping(uint256 => Ticket) public tickets;
 
     event EventCreated(uint256 indexed eventId, address indexed organizer, uint256 price, uint256 supply);
 
@@ -40,5 +51,30 @@ contract EventTicketing {
         nextEventId++;
 
     }
+
+
+    function buyTicket(uint256 eventId) external payable {
+        Event storage eventData = events[eventId];
+
+        require(eventId < nextEventId, "Event doesn't exist");
+        require(eventData.sold < eventData.supply, "Event is sold out");
+        require(msg.value == eventData.price, "Incorrect event price");
+        
+        uint256 ticketId = nextTicketId;
+
+        tickets[ticketId] = Ticket(
+            {
+                id: ticketId,
+                eventId: eventId,
+                owner: msg.sender,
+                isUsed: false
+            }
+        );
+
+        eventData.sold++;
+        nextTicketId++;
+
+    }
+
 
 }
