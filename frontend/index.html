@@ -1,0 +1,82 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TicketChain</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <strong class="brand">TicketChain</strong>
+    <button id="wallet">Connect Wallet</button>
+  </header>
+
+  <nav class="tabs">
+    <button data-view="events" class="active">Events</button>
+    <button data-view="create">Create Event</button>
+    <button data-view="tickets">My Tickets</button>
+    <button data-view="verify">Verify</button>
+  </nav>
+
+  <main>
+    <section id="events" class="view">
+      <p class="eyebrow">The on-chain event pass</p>
+      <h2>Events</h2>
+      <div id="events-list" class="event-list"></div>
+    </section>
+
+    <section id="event" class="view narrow" hidden>
+      <div class="panel">
+        <button data-view="events" class="back">&larr; Back to events</button>
+        <h2 id="d-name"></h2>
+        <p id="d-desc"></p>
+        <dl>
+          <dt>Organizer</dt><dd id="d-organizer" class="mono"></dd>
+          <dt>Price</dt><dd id="d-price"></dd>
+          <dt>Ticket supply</dt><dd id="d-supply"></dd>
+          <dt>Tickets sold</dt><dd id="d-sold"></dd>
+        </dl>
+        <button class="primary">Buy Ticket</button>
+      </div>
+    </section>
+
+    <section id="create" class="view narrow" hidden>
+      <p class="eyebrow">Host something great</p>
+      <h2>Create Event</h2>
+      <form id="create-form" class="panel form-grid">
+        <label>Event Name <input name="name" required></label>
+        <label>Description <textarea name="description" rows="2" required></textarea></label>
+        <label>Venue <input name="venue" required></label>
+        <label>Date <input type="date" name="date" required></label>
+        <label>Ticket Price (ETH) <input type="number" name="price" min="0" step="0.001" required></label>
+        <label>Ticket Supply <input type="number" name="supply" min="1" step="1" required></label>
+        <button class="primary">Create Event</button>
+      </form>
+    </section>
+
+    <section id="tickets" class="view" hidden>
+      <p class="eyebrow">Your collection</p>
+      <h2>My Tickets</h2>
+      <div class="ticket-list"></div>
+    </section>
+
+    <section id="verify" class="view narrow" hidden>
+      <p class="eyebrow">Gatekeeper tools</p>
+      <h2>Verify Ticket</h2>
+      <form id="verify-form" class="verify-bar">
+        <label>Ticket ID <input type="number" min="0" placeholder="e.g. 14" required></label>
+        <button class="primary">Verify Ticket</button>
+      </form>
+
+      <div id="result" class="panel" hidden></div>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.16.0/dist/ethers.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
