@@ -1,4 +1,3 @@
-
 const CONTRACT_ADDRESS = "0xF8Ed9C6Cb8081DD3354d98aC9a51625a890FAbb6";
 const SEPOLIA_CHAIN_ID = 11155111n;
 const API_URL = "http://127.0.0.1:8000";
@@ -7,7 +6,6 @@ let contract;
 let isConnecting = false;
 let selectedEventId = null;
 
-// Navigation
 
 function showSection(name) {
   document.querySelectorAll(".view").forEach((view) => {
@@ -31,7 +29,6 @@ document.querySelectorAll("[data-view]").forEach((button) => {
   });
 });
 
-// Contract connection (read-only)
 
 async function getContract() {
   if (!window.ethereum) {
@@ -55,7 +52,6 @@ async function getContract() {
   return contract;
 }
 
-// Event details
 
 function openEvent(row) {
   document.querySelector("#d-name").textContent =
@@ -74,7 +70,6 @@ function openEvent(row) {
   showSection("event");
 }
 
-// Load events from FastAPI + Sepolia
 
 async function loadEvents() {
   const container = document.querySelector("#events-list");
@@ -158,7 +153,6 @@ async function loadEvents() {
   }
 }
 
-// My Tickets
 
 async function loadMyTickets() {
   const container = document.querySelector(".ticket-list");
@@ -282,7 +276,6 @@ async function connectWallet() {
   try {
     const provider = new ethers.BrowserProvider(window.ethereum);
 
-    // Ask MetaMask to manage the accounts connected to this site.
     await provider.send("wallet_requestPermissions", [
       { eth_accounts: {} }
     ]);
@@ -329,7 +322,6 @@ async function connectWallet() {
 
 walletButton.addEventListener("click", connectWallet);
 
-// MetaMask account and network changes
 
 if (window.ethereum) {
   window.ethereum.on("accountsChanged", (accounts) => {
@@ -347,17 +339,116 @@ if (window.ethereum) {
   });
 }
 
-// Forms (not connected yet)
 
 document.querySelector("#create-form").addEventListener("submit", (event) => {
   event.preventDefault();
 });
 
-document.querySelector("#verify-form").addEventListener("submit", (event) => {
+
+
+document.querySelector("#verify-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+
+  const form = event.currentTarget;
+  const input = form.querySelector("input");
+  const button = form.querySelector("button");
+  const result = document.querySelector("#result");
+
+  const ticketId = Number(input.value);
+
+  result.hidden = false;
+  result.textContent = "Verifying ticket...";
+  button.disabled = true;
+
+  try {
+    const ticketContract = await getContract();
+    const totalTickets = await ticketContract.nextTicketId();
+
+    if (!Number.isSafeInteger(ticketId) ||
+        ticketId < 0 ||
+        BigInt(ticketId) >= totalTickets) {
+      throw new Error("Ticket does not exist");
+    }
+
+    const [eventId, owner, isUsed] =
+      await ticketContract.verifyTicket(ticketId);
+
+    const eventData = await ticketContract.events(eventId);
+
+    result.replaceChildren();
+
+    const heading = document.createElement("h3");
+    heading.textContent = `Ticket #${ticketId}`;
+
+    const eventInfo = document.createElement("p");
+    eventInfo.textContent = `Event ID: ${eventId}`;
+
+    const ownerInfo = document.createElement("p");
+    ownerInfo.textContent = `Owner: ${owner}`;
+    ownerInfo.className = "mono";
+
+    const status = document.createElement("p");
+    status.textContent = isUsed ? "Status: USED" : "Status: VALID";
+
+    result.append(heading, eventInfo, ownerInfo, status);
+
+    if (!isUsed) {
+      const accounts = await window.ethereum.request({
+        method: "eth_accounts"
+      });
+
+      const currentAccount = accounts[0]?.toLowerCase();
+      const organizer = eventData.organizer.toLowerCase();
+
+      if (currentAccount === organizer) {
+        const useButton = document.createElement("button");
+        useButton.className = "primary";
+        useButton.textContent = "Mark as Used";
+
+        useButton.addEventListener("click", async () => {
+          useButton.disabled = true;
+          useButton.textContent = "Waiting for confirmation...";
+
+          try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+
+            const tx = await ticketContract
+              .connect(signer)
+              .useTicket(ticketId);
+
+            const receipt = await tx.wait();
+
+            if (receipt.status !== 1) {
+              throw new Error("Transaction failed");
+            }
+
+            status.textContent = "Status: USED";
+            useButton.remove();
+
+            alert("Ticket marked as used successfully!");
+
+          } catch (error) {
+            console.error("Failed to use ticket:", error);
+            alert(error.shortMessage || error.message);
+            useButton.disabled = false;
+            useButton.textContent = "Mark as Used";
+          }
+        });
+
+        result.appendChild(useButton);
+      }
+    }
+
+  } catch (error) {
+    console.error("Verification failed:", error);
+    result.textContent = `Verification failed: ${error.shortMessage || error.message}`;
+
+  } finally {
+    button.disabled = false;
+  }
 });
 
-// Buy Ticket
 
 async function buyTicket() {
   const button = document.querySelector("#buy-ticket");
@@ -419,8 +510,6 @@ async function buyTicket() {
 }
 
 document.querySelector("#buy-ticket").addEventListener("click", buyTicket);
-
-// Transfer Ticket
 
 async function transferTicket(ticketId) {
   const newOwner = prompt("Enter recipient wallet address:");
