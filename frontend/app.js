@@ -239,6 +239,16 @@ async function loadMyTickets() {
       button.textContent = "Transfer";
       button.disabled = ticket.isUsed;
 
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+
+        try {
+          await transferTicket(id);
+        } finally {
+          button.disabled = false;
+        }
+      });
+
       stub.append(status, button);
       article.append(info, stub);
       container.appendChild(article);
@@ -395,6 +405,64 @@ async function buyTicket() {
 }
 
 document.querySelector("#buy-ticket").addEventListener("click", buyTicket);
+
+
+
+
+async function transferTicket(ticketId) {
+  const newOwner = prompt("Enter recipient wallet address:");
+
+  if (newOwner === null) return;
+
+  if (!ethers.isAddress(newOwner) || newOwner === ethers.ZeroAddress) {
+    alert("Invalid Ethereum address.");
+    return;
+  }
+
+  try {
+    const ticketContract = await getContract();
+    const provider = new ethers.BrowserProvider(window.ethereum);
+
+    const accounts = await provider.send("eth_requestAccounts", []);
+    if (!accounts.length) {
+      throw new Error("Wallet not connected");
+    }
+
+    const network = await provider.getNetwork();
+    if (network.chainId !== SEPOLIA_CHAIN_ID) {
+      throw new Error("Please switch MetaMask to Sepolia");
+    }
+
+    const signer = await provider.getSigner();
+    const currentOwner = await signer.getAddress();
+
+    if (currentOwner.toLowerCase() === newOwner.toLowerCase()) {
+      throw new Error("You already own this ticket");
+    }
+
+    const contractWithSigner = ticketContract.connect(signer);
+
+    const tx = await contractWithSigner.transferTicket(ticketId, newOwner);
+
+    console.log("Transfer transaction:", tx.hash);
+
+    const receipt = await tx.wait();
+
+    if (receipt.status !== 1) {
+      throw new Error("Transfer failed");
+    }
+
+    alert("Ticket transferred successfully!");
+    await loadMyTickets();
+
+  } catch (error) {
+    console.error("Transfer failed:", error);
+    alert(error.shortMessage || error.message);
+  }
+}
+
+
+
 
 // Initial load
 
