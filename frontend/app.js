@@ -7,6 +7,7 @@ let contract;
 let isConnecting = false;
 let selectedEventId = null;
 
+// Navigation
 
 function showSection(name) {
   document.querySelectorAll(".view").forEach((view) => {
@@ -21,9 +22,16 @@ function showSection(name) {
 }
 
 document.querySelectorAll("[data-view]").forEach((button) => {
-  button.addEventListener("click", () => showSection(button.dataset.view));
+  button.addEventListener("click", () => {
+    showSection(button.dataset.view);
+
+    if (button.dataset.view === "tickets") {
+      loadMyTickets();
+    }
+  });
 });
 
+// Contract connection (read-only)
 
 async function getContract() {
   if (!window.ethereum) {
@@ -47,6 +55,7 @@ async function getContract() {
   return contract;
 }
 
+// Event details
 
 function openEvent(row) {
   document.querySelector("#d-name").textContent =
@@ -65,6 +74,7 @@ function openEvent(row) {
   showSection("event");
 }
 
+// Load events from FastAPI + Sepolia
 
 async function loadEvents() {
   const container = document.querySelector("#events-list");
@@ -82,7 +92,6 @@ async function loadEvents() {
     for (const event of events) {
       const onChain = await ticketContract.events(event.contract_event_id);
 
-      // Ignore metadata pointing to a non-existent on-chain event.
       if (onChain.organizer === ethers.ZeroAddress) {
         console.warn("Event not found on-chain:", event.contract_event_id);
         continue;
@@ -103,7 +112,8 @@ async function loadEvents() {
       const index = document.createElement("span");
       index.className = "event-index";
       index.setAttribute("aria-hidden", "true");
-      index.textContent = `TC / ${String(event.contract_event_id + 1).padStart(3, "0")}`;
+      index.textContent =
+        `TC / ${String(event.contract_event_id + 1).padStart(3, "0")}`;
 
       const info = document.createElement("div");
 
@@ -148,6 +158,102 @@ async function loadEvents() {
   }
 }
 
+// My Tickets
+
+async function loadMyTickets() {
+  const container = document.querySelector(".ticket-list");
+  container.textContent = "Loading tickets...";
+
+  try {
+    if (!window.ethereum) {
+      throw new Error("MetaMask is not installed");
+    }
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const accounts = await provider.send("eth_accounts", []);
+
+    if (!accounts.length) {
+      container.textContent = "Connect your wallet to view tickets.";
+      return;
+    }
+
+    const ticketContract = await getContract();
+    const walletAddress = accounts[0].toLowerCase();
+    const totalTickets = Number(await ticketContract.nextTicketId());
+
+    const response = await fetch(`${API_URL}/events/`);
+    if (!response.ok) throw new Error("Failed to load event metadata");
+
+    const events = await response.json();
+    const eventNames = new Map(
+      events.map((event) => [event.contract_event_id, event.name])
+    );
+
+    container.replaceChildren();
+
+    for (let id = 0; id < totalTickets; id++) {
+      const ticket = await ticketContract.tickets(id);
+
+      if (ticket.owner.toLowerCase() !== walletAddress) {
+        continue;
+      }
+
+      const article = document.createElement("article");
+      article.className = "ticket";
+
+      const info = document.createElement("div");
+      info.className = "ticket-info";
+
+      const name = document.createElement("h3");
+      name.textContent =
+        eventNames.get(Number(ticket.eventId)) || `Event #${ticket.eventId}`;
+
+      const details = document.createElement("dl");
+
+      const idLabel = document.createElement("dt");
+      idLabel.textContent = "Ticket ID";
+
+      const idValue = document.createElement("dd");
+      idValue.className = "mono";
+      idValue.textContent = `#${id}`;
+
+      const ownerLabel = document.createElement("dt");
+      ownerLabel.textContent = "Owner";
+
+      const ownerValue = document.createElement("dd");
+      ownerValue.className = "mono";
+      ownerValue.textContent =
+        `${ticket.owner.slice(0, 6)}...${ticket.owner.slice(-4)}`;
+
+      details.append(idLabel, idValue, ownerLabel, ownerValue);
+      info.append(name, details);
+
+      const stub = document.createElement("div");
+      stub.className = "ticket-stub";
+
+      const status = document.createElement("span");
+      status.className = `status ${ticket.isUsed ? "used" : "valid"}`;
+      status.textContent = ticket.isUsed ? "USED" : "VALID";
+
+      const button = document.createElement("button");
+      button.textContent = "Transfer";
+      button.disabled = ticket.isUsed;
+
+      stub.append(status, button);
+      article.append(info, stub);
+      container.appendChild(article);
+    }
+
+    if (!container.children.length) {
+      container.textContent = "You don't own any tickets yet.";
+    }
+
+  } catch (error) {
+    console.error("Failed to load tickets:", error);
+    container.textContent = `Could not load tickets: ${error.message}`;
+  }
+}
+
 // MetaMask
 
 const walletButton = document.getElementById("wallet");
@@ -178,6 +284,10 @@ async function connectWallet() {
     walletButton.textContent =
       `${address.slice(0, 6)}...${address.slice(-4)}`;
 
+    if (!document.querySelector("#tickets").hidden) {
+      await loadMyTickets();
+    }
+
   } catch (error) {
     console.error(error);
 
@@ -195,12 +305,17 @@ async function connectWallet() {
 
 walletButton.addEventListener("click", connectWallet);
 
+// MetaMask account and network changes
 
 if (window.ethereum) {
   window.ethereum.on("accountsChanged", (accounts) => {
     walletButton.textContent = accounts.length
       ? `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`
       : "Connect Wallet";
+
+    if (!document.querySelector("#tickets").hidden) {
+      loadMyTickets();
+    }
   });
 
   window.ethereum.on("chainChanged", () => {
@@ -208,7 +323,7 @@ if (window.ethereum) {
   });
 }
 
-//  (not connected yet)
+// Forms (not connected yet)
 
 document.querySelector("#create-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -218,10 +333,7 @@ document.querySelector("#verify-form").addEventListener("submit", (event) => {
   event.preventDefault();
 });
 
-
-loadEvents();
-
-
+// Buy Ticket
 
 async function buyTicket() {
   const button = document.querySelector("#buy-ticket");
@@ -283,3 +395,7 @@ async function buyTicket() {
 }
 
 document.querySelector("#buy-ticket").addEventListener("click", buyTicket);
+
+// Initial load
+
+loadEvents();
