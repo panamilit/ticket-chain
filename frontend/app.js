@@ -5,6 +5,7 @@ const API_URL = "http://127.0.0.1:8000";
 
 let contract;
 let isConnecting = false;
+let selectedEventId = null;
 
 
 function showSection(name) {
@@ -58,6 +59,8 @@ function openEvent(row) {
   document.querySelector("#d-organizer").textContent = row.dataset.organizer;
   document.querySelector("#d-supply").textContent = row.dataset.supply;
   document.querySelector("#d-sold").textContent = row.dataset.sold;
+
+  selectedEventId = Number(row.dataset.eventId);
 
   showSection("event");
 }
@@ -217,3 +220,66 @@ document.querySelector("#verify-form").addEventListener("submit", (event) => {
 
 
 loadEvents();
+
+
+
+async function buyTicket() {
+  const button = document.querySelector("#buy-ticket");
+
+  if (selectedEventId === null) {
+    alert("Please select an event.");
+    return;
+  }
+
+  if (!window.ethereum) {
+    alert("Please install MetaMask.");
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    const ticketContract = await getContract();
+    const provider = new ethers.BrowserProvider(window.ethereum);
+
+    const accounts = await provider.send("eth_requestAccounts", []);
+    if (!accounts.length) throw new Error("Wallet not connected");
+
+    const network = await provider.getNetwork();
+    if (network.chainId !== SEPOLIA_CHAIN_ID) {
+      throw new Error("Please switch MetaMask to Sepolia");
+    }
+
+    const signer = await provider.getSigner();
+    const eventData = await ticketContract.events(selectedEventId);
+
+    if (eventData.sold >= eventData.supply) {
+      throw new Error("Event is sold out");
+    }
+
+    const tx = await ticketContract.connect(signer).buyTicket(
+      selectedEventId,
+      { value: eventData.price }
+    );
+
+    console.log("Transaction:", tx.hash);
+
+    const receipt = await tx.wait();
+
+    if (receipt.status !== 1) {
+      throw new Error("Transaction failed");
+    }
+
+    alert("Ticket purchased successfully!");
+    await loadEvents();
+
+  } catch (error) {
+    console.error("Purchase failed:", error);
+    alert(error.shortMessage || error.message);
+
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.querySelector("#buy-ticket").addEventListener("click", buyTicket);
