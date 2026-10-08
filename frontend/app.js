@@ -281,11 +281,22 @@ async function connectWallet() {
 
   try {
     const provider = new ethers.BrowserProvider(window.ethereum);
-    const accounts = await provider.send("eth_requestAccounts", []);
+
+    // Ask MetaMask to manage the accounts connected to this site.
+    await provider.send("wallet_requestPermissions", [
+      { eth_accounts: {} }
+    ]);
+
+    const accounts = await provider.send("eth_accounts", []);
     const network = await provider.getNetwork();
 
     if (network.chainId !== SEPOLIA_CHAIN_ID) {
       alert("Please switch MetaMask to Sepolia.");
+      return;
+    }
+
+    if (!accounts.length) {
+      walletButton.textContent = "Connect Wallet";
       return;
     }
 
@@ -303,7 +314,10 @@ async function connectWallet() {
 
     if (error.code === -32002 || error.error?.code === -32002) {
       alert("A MetaMask request is already pending. Check your wallet.");
-    } else if (error.code !== 4001 && error.code !== "ACTION_REJECTED") {
+    } else if (
+      error.code !== 4001 &&
+      error.code !== "ACTION_REJECTED"
+    ) {
       alert("Wallet connection failed.");
     }
 
@@ -406,8 +420,7 @@ async function buyTicket() {
 
 document.querySelector("#buy-ticket").addEventListener("click", buyTicket);
 
-
-
+// Transfer Ticket
 
 async function transferTicket(ticketId) {
   const newOwner = prompt("Enter recipient wallet address:");
@@ -460,9 +473,6 @@ async function transferTicket(ticketId) {
     alert(error.shortMessage || error.message);
   }
 }
-
-
-
 
 // Initial load
 
