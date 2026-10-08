@@ -340,10 +340,147 @@ if (window.ethereum) {
 }
 
 
-document.querySelector("#create-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-});
 
+document.querySelector("#create-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type="submit"], button:not([type])');
+
+  if (!window.ethereum) {
+    alert("Please install MetaMask.");
+    return;
+  }
+
+  const formData = new FormData(form);
+
+  const name = String(formData.get("name")).trim();
+  const description = String(formData.get("description")).trim();
+  const venue = String(formData.get("venue")).trim();
+  const date = String(formData.get("date"));
+  const price = String(formData.get("price"));
+  const supply = Number(formData.get("supply"));
+
+  if (!name || !description || !venue || !date) {
+    alert("Please complete all event details.");
+    return;
+  }
+
+  if (!Number.isSafeInteger(supply) || supply < 1) {
+    alert("Ticket supply must be a positive integer.");
+    return;
+  }
+
+  let contractEventId = null;
+
+  button.disabled = true;
+  button.textContent = "Creating event...";
+
+  try {
+    const ticketContract = await getContract();
+    const provider = new ethers.BrowserProvider(window.ethereum);
+
+    const accounts = await provider.send("eth_requestAccounts", []);
+    if (!accounts.length) {
+      throw new Error("Wallet not connected");
+    }
+
+    const network = await provider.getNetwork();
+    if (network.chainId !== SEPOLIA_CHAIN_ID) {
+      throw new Error("Please switch MetaMask to Sepolia");
+    }
+
+    const signer = await provider.getSigner();
+
+    const priceWei = ethers.parseEther(price);
+
+    const tx = await ticketContract
+      .connect(signer)
+      .createEvent(priceWei, BigInt(supply));
+
+    console.log("Create event transaction:", tx.hash);
+
+    button.textContent = "Waiting for confirmation...";
+
+    const receipt = await tx.wait();
+
+    if (receipt.status !== 1) {
+      throw new Error("Blockchain transaction failed");
+    }
+
+    
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) {
+        continue;
+      }
+
+      try {
+        const parsed = ticketContract.interface.parseLog(log);
+
+        if (parsed && parsed.name === "EventCreated") {
+          contractEventId = Number(parsed.args.eventId);
+          break;
+        }
+      } catch {
+        
+      }
+    }
+
+    if (contractEventId === null) {
+      throw new Error(
+        `Event created on-chain (transaction ${tx.hash}), ` +
+        "but EventCreated log was not found."
+      );
+    }
+
+    
+    button.textContent = "Saving event details...";
+
+    const response = await fetch(`${API_URL}/events/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        contract_event_id: contractEventId,
+        name,
+        description,
+        venue,
+        date
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Event #${contractEventId} was created on Sepolia, ` +
+        `but saving metadata failed (HTTP ${response.status}).`
+      );
+    }
+
+    alert(`Event #${contractEventId} created successfully!`);
+
+    form.reset();
+    showSection("events");
+    await loadEvents();
+
+  } catch (error) {
+    console.error("Event creation failed:", error);
+
+    if (contractEventId !== null) {
+      alert(
+        `Event #${contractEventId} exists on Sepolia, ` +
+        `but the operation was not completed: ${error.message}\n\n` +
+        "Do not submit the form again yet."
+      );
+    } else {
+      alert(error.shortMessage || error.message);
+    }
+
+  } finally {
+    button.disabled = false;
+    button.textContent = "Create Event";
+  }
+});
 
 
 document.querySelector("#verify-form").addEventListener("submit", async (event) => {
