@@ -94,7 +94,7 @@ p { margin-bottom: 0; color: var(--muted); }
 }
 
 .topbar::after {
-  content: "AUCKLAND · ETHEREUM";
+  content: "SEPOLIA · ETHEREUM";
   order: 0;
   margin-left: auto;
   padding: 6px 10px;
